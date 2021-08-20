@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import discord
 from dotenv import load_dotenv
 from discord.ext import commands
-from core.helpers import getLogger
+from core.logging import getLogger
 logger = getLogger(__name__)
 class FeedbackBot:
     def __init__(self, TOKEN, database):
@@ -12,7 +12,6 @@ class FeedbackBot:
         self.database = database
         # Setup database
         logger.info("[*] Connecting to database...")
-        connection, db, census = sqlite.connect('sqlite:///'+database, 'server')
         logger.info("[*] Connecting to database...DONE")
         #self.bot = commands.AutoShardedBot(shard_count=3, command_prefix="$")
 
