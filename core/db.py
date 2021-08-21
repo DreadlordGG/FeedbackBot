@@ -5,16 +5,20 @@ import os
 from core.logging import getLogger
 from functools import wraps
 logger = getLogger(__name__)
+
 class pgsql:
-    def __init__(self, database):
+    def __init__(self, database, host='127.0.0.1', user=os.getenv('DATABASE_USER'), password=os.getenv('DATABASE_PASSWORD')):
         self.database = database
+        self.host = host
+        self.user = user
+        self.password = password
+        self.connection_string = "dbname=%s host=%s user=%s password=%s" % (self.database, self.host,  self.user, self.password)
 
     def with_connection(f):
         @wraps(f)
         def with_connection_(self, *args, **kwargs):
-            DB_CONNECTION_STRING = "dbname=%s host=%s user=%s password=%s" % (self.database, '127.0.0.1',  os.getenv('DATABASE_USER'), os.getenv('DATABASE_PASSWORD'))
             try:
-                cnn = psycopg2.connect(DB_CONNECTION_STRING)
+                cnn = psycopg2.connect(self.connection_string)
                 cnn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT);
                 Cursor = cnn.cursor()
             except Exception as e:
