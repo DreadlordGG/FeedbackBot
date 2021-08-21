@@ -6,15 +6,10 @@ from dotenv import load_dotenv
 from discord.ext import commands
 from core.logging import getLogger
 logger = getLogger(__name__)
+from core.db import pgsql
 class FeedbackBot:
-    def __init__(self, TOKEN, database):
+    def __init__(self, TOKEN):
         self.TOKEN = TOKEN
-        self.database = database
-        # Setup database
-        logger.info("[*] Connecting to database...")
-        logger.info("[*] Connecting to database...DONE")
-        #self.bot = commands.AutoShardedBot(shard_count=3, command_prefix="$")
-
         self.bot = discord.AutoShardedClient()
         self.init_setup()
 
@@ -22,10 +17,14 @@ class FeedbackBot:
 
         @self.bot.event
         async def on_ready():
+            await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="Feedback"))
             logger.info("I am ready to act")
 
         @self.bot.event
         async def on_guild_join(guild):
+            database_name = ''.join(filter(str.isalnum, guild.name))
+            db = pgsql(database_name)
+            db.init
             overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             guild.me: discord.PermissionOverwrite(read_messages=True,send_messages=True)

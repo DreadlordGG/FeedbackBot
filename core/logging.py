@@ -18,4 +18,5 @@ def getLogger(name=None, guild=None):
     logger.setLevel(log_level)
     logger.addHandler(fh)
     loggers.add(logger)
+    print("i ran")
     return logger
