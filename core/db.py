@@ -1,72 +1,62 @@
-import psycopg2
-from psycopg2 import sql
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import os
+import sys
+import asyncio
+import datetime
+from sqlalchemy.future import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.pool import AsyncAdaptedQueuePool
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.declarative import declarative_base
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from core.logging import getLogger
-from functools import wraps
-logger = getLogger(__name__)
+from core.models import Base
+from core.models import General
+from core.settings import Config
 
-class pgsql:
-    def __init__(self, database, host='127.0.0.1', user=os.getenv('DATABASE_USER'), password=os.getenv('DATABASE_PASSWORD')):
+conf=Config()
+logger=getLogger(__name__)
+
+class async_pgsql():
+    def __init__(self, database):
         self.database = database
-        self.host = host
-        self.user = user
-        self.password = password
-        self.connection_string = "dbname=%s host=%s user=%s password=%s" % (self.database, self.host,  self.user, self.password)
+        self.engine = None
 
-    def with_connection(f):
-        @wraps(f)
-        def with_connection_(self, *args, **kwargs):
-            try:
-                cnn = psycopg2.connect(self.connection_string)
-                cnn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT);
-                Cursor = cnn.cursor()
-            except Exception as e:
-                logger.error("Database connection failed %s", e)
-                raise
-            try:
-                rv = f(Cursor, *args, **kwargs)
-            except Exception as e:
-                cnn.rollback()
-                logger.error("Query to %s failed %s",cnn, e)
-                raise
-            finally:
-                cnn.close()
-            return rv
-        return with_connection_
-        
-    @with_connection
-    def query(Cursor, query):
-        Cursor.execute(query)
-        result = Cursor.fetchone()
-        return query
+    async def create_engine(self):
+        connection_string = f"postgresql+asyncpg://{conf.DATABASE_USER}:{conf.DATABASE_PASSWORD}@{conf.DATABASE_HOST}/{conf.DATABASE}"
+        self.engine = create_async_engine(
+            connection_string, 
+            poolclass=AsyncAdaptedQueuePool,
+            echo=True,
+            pool_size=int(conf.DATABASE_POOLSIZE),
+            isolation_level=conf.DATABASE_ISOLATION_LEVEL
+        )
+        async with self.engine.begin() as conn:
+            #await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
 
-    @with_connection
-    def init(self, Cursor):
-        try:
-            Cursor.execute(sql.SQL("CREATE DATABASE {}").format(
-                sql.Identifier(self.database))
+        async with self.engine.connect() as conn:
+            stmt = (
+                insert(General).
+                values(start_time=datetime.datetime.now(), id=1)
             )
-            logger.info(f'[{self.database}] has been created')
-            return
-        except psycopg2.errors.DuplicateDatabase as e:
-            logger.warning(f'[{self.database}] already exists. Moving on...')
-            return
+            on_duplicate_key_stmt = stmt.on_conflict_do_update(
+                index_elements=['id'],
+                set_=dict(start_time=datetime.datetime.now())
+            )
+            result = await conn.execute(on_duplicate_key_stmt)
+            logger.info(f"Uptime updated.")
+        logger.info(f"Database pool created. Ready for connections")
+        return self.engine
+
+    async def test_db(self, engine):
+        try:
+            async with engine.connect() as conn:
+                stmt = (
+                    select(General)
+                )
+                result = await conn.execute(stmt)
+            logger.info("Database test successfully passed.")
+            return True
         except Exception as e:
-            logger.error(f'[{self.database}] creation failed. {e}.')
-            raise
-"""         else:
-            try:
-                print("i reach here")
-                Cursor.execute("CREATE TABLE vendors (vendor_id SERIAL PRIMARY KEY,vendor_name VARCHAR(255) NOT NULL)")
-                logger.info(f'Tables structure for [{self.database}] has been created')
-                return
-            except psycopg2.errors.DuplicateTable as e:
-                logger.warning(f'Table structure for [{self.database}] already exists. Moving on...')
-                return
-            except Exception as e:
-                logger.error(f'[{self.database}] creation failed. {e}.') """
-
-
-
-
+            logger.error(f"Database test failed {e}")
+            return False

@@ -1,13 +1,14 @@
-import os
-import discord
-import sys
 from dotenv import load_dotenv
 from FeedbackBot import FeedbackBot
+from core.logging import getLogger
+import os
+from core.settings import Config
+conf = Config()
+logger = getLogger(__name__)
 def main():
     load_dotenv()
-    TOKEN = os.getenv('DISCORD_TOKEN')
-    Bot = FeedbackBot(TOKEN)
-    Bot.run()
-
+    Bot = FeedbackBot()
+    Bot.launch()
+      
 if __name__ == '__main__':  # for `python -m` invocation
     main()

@@ -8,15 +8,14 @@ fh = logging.FileHandler(log_file)
 fh.setLevel(log_level)
 loggers = set()
 formatter = logging.Formatter(
-    "%(asctime)s %(name)s[%(funcName)s] - %(levelname)s: %(message)s", datefmt="%d/%m/%y %H:%M:%S"
+    "%(asctime)s %(name)s[%(lineno)s][%(funcName)s] - %(levelname)s: %(message)s", datefmt="%d/%m/%y %H:%M:%S"
 )
 fh.setFormatter(formatter)
 logging.setLoggerClass(logging.Logger)
 
-def getLogger(name=None, guild=None):
+def getLogger(name=None):
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
     logger.addHandler(fh)
     loggers.add(logger)
-    print("i ran")
     return logger
